@@ -42,6 +42,10 @@ override LDLIBS += -lutil
 endif
 endif
 
+# pthreads for the relay (one blocking thread per direction). On musl it's in
+# libc (-lpthread is a harmless stub); on glibc/macOS it's needed.
+override LDLIBS += -lpthread
+
 PREFIX  ?= /usr/local
 DESTDIR ?=
 

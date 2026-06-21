@@ -28,7 +28,7 @@ No USB cable, no host machine — the "plug the modem into a PC" workflow, but i
 qttyforge does **not** replace or modify the stock vendor `diag-router`, and it does **not** edit any init scripts:
 
 - **DIAG leg:** the stock `diag-router` already supports a socket output flag that runs *alongside* its normal USB output. qttyforge relaunches the existing managed instance with that flag pointed at itself — via a runtime override that keeps the service manager seeing `diag-router` as running, with no on-disk changes — then relays that socket to `/dev/ttyDiag`. The USB DIAG path keeps working.
-- **AT leg:** a single process owns each internal AT channel and `poll()`-relays it to a PTY, providing proper serial behavior, partial-read/write handling, and isolation (one opener per channel). No `socat`, no `cat` pipelines.
+- **AT leg:** a single process owns each internal AT channel and relays it to a PTY — blocking, one thread per direction (GLINK `smd` doesn't work with `poll()`/non-blocking), with write-complete handling and one-opener isolation. No `socat`, no `cat` pipelines, no straggler processes.
 - **Init-system aware:** auto-detects the service manager (systemd / procd / sysv-init) and uses the appropriate mechanism, so the same binary works across modem platforms.
 
 ## Configuration

@@ -15,7 +15,7 @@ int at_start_all(struct engine *e, const struct config *cfg)
 		const struct at_map *at = &cfg->ats[i];
 		const char *nm = at->name ? at->name : "at";
 		struct pty pty;
-		int sfd;
+		int sfd, fl;
 
 		if (!at->enabled) {
 			log_info("at: %s disabled, skipping", nm);
@@ -26,12 +26,18 @@ int at_start_all(struct engine *e, const struct config *cfg)
 			continue;
 		}
 
+		/* Open non-blocking so a dead GLINK channel can't hang startup,
+		 * then switch to blocking: the relay uses blocking threads, and
+		 * GLINK /dev/smd does not work with O_NONBLOCK + poll(). */
 		sfd = open(at->smd, O_RDWR | O_NOCTTY | O_NONBLOCK);
 		if (sfd < 0) {
 			log_warn("at: %s cannot open %s: %s (skipping)",
 				 nm, at->smd, strerror(errno));
 			continue;
 		}
+		fl = fcntl(sfd, F_GETFL);
+		if (fl >= 0)
+			fcntl(sfd, F_SETFL, fl & ~O_NONBLOCK);
 
 		if (pty_open(&pty, at->tty) < 0) {
 			close(sfd);
