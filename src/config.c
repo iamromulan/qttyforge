@@ -1,6 +1,6 @@
 #include "config.h"
 #include "log.h"
-#include "util.h"
+#include "xalloc.h"
 
 #include <ctype.h>
 #include <stdio.h>

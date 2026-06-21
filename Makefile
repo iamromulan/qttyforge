@@ -28,6 +28,13 @@ ifeq ($(STATIC),1)
 override LDFLAGS += -static
 endif
 
+# openpty() lives in -lutil on glibc; on musl it's in libc (-lutil is an
+# empty stub) and on macOS it's in libSystem (no -lutil). Only add it on Linux.
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+override LDLIBS += -lutil
+endif
+
 PREFIX  ?= /usr/local
 DESTDIR ?=
 
@@ -40,7 +47,7 @@ DEPS := $(OBJS:.o=.d)
 all: $(BIN)
 
 $(BIN): $(OBJS)
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c -o $@ $<

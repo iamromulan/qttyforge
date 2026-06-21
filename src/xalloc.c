@@ -1,4 +1,4 @@
-#include "util.h"
+#include "xalloc.h"
 #include "log.h"
 
 #include <stdlib.h>

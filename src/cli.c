@@ -1,8 +1,8 @@
 #include "cli.h"
 #include "config.h"
 #include "log.h"
-#include "util.h"
 #include "version.h"
+#include "xalloc.h"
 
 #include <getopt.h>
 #include <stdio.h>

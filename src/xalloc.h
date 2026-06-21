@@ -1,5 +1,5 @@
-#ifndef QTTYFORGE_UTIL_H
-#define QTTYFORGE_UTIL_H
+#ifndef QTTYFORGE_XALLOC_H
+#define QTTYFORGE_XALLOC_H
 
 #include <stddef.h>
 
@@ -13,4 +13,4 @@ void *xrealloc(void *p, size_t n);
 char *xstrdup(const char *s);
 char *xstrndup(const char *s, size_t n);
 
-#endif /* QTTYFORGE_UTIL_H */
+#endif /* QTTYFORGE_XALLOC_H */

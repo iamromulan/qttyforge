@@ -1,19 +1,48 @@
+#include "at.h"
 #include "cli.h"
 #include "config.h"
 #include "log.h"
+#include "relay.h"
 #include "version.h"
 
 #include <errno.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <string.h>
+
+static int run(const struct config *cfg)
+{
+	struct engine *e;
+	int n_at, rc;
+
+	if (!cfg->enabled) {
+		log_info("globally disabled (enabled=0); nothing to do");
+		return 0;
+	}
+
+	if (cfg->diag.enabled)
+		log_warn("DIAG leg not implemented in this build; ignoring the 'diag' section for now");
+
+	e = engine_new();
+	n_at = at_start_all(e, cfg);
+
+	if (n_at <= 0) {
+		log_err("nothing to bring up: no AT channels came up");
+		engine_free(e);
+		return 3;
+	}
+
+	log_info("%d AT channel(s) up; relaying (SIGINT/SIGTERM to stop)", n_at);
+	rc = engine_run(e);
+	engine_free(e);
+	return rc;
+}
 
 int main(int argc, char **argv)
 {
 	struct cli_opts opts;
 	struct config cfg;
 	bool done = false;
-	int rc = 0;
+	int rc;
 
 	if (cli_parse(argc, argv, &opts, &done) != 0)
 		return 2;
@@ -44,30 +73,7 @@ int main(int argc, char **argv)
 	cli_apply(&cfg, &opts);
 	config_dump(&cfg);
 
-	if (!cfg.enabled) {
-		log_info("globally disabled (enabled=0); nothing to do");
-	} else {
-		size_t enabled_ats = 0;
-
-		for (size_t i = 0; i < cfg.n_ats; i++)
-			if (cfg.ats[i].enabled)
-				enabled_ats++;
-
-		/*
-		 * Nothing to bring up -> abort rather than idle. The DIAG leg's
-		 * runtime availability also depends on diag-router being present;
-		 * if it is missing the engine downgrades DIAG to a warning and
-		 * re-applies this same check (a missing diag-router with no AT
-		 * channels is therefore a hard exit, not an idle daemon).
-		 */
-		if (!cfg.diag.enabled && enabled_ats == 0) {
-			log_err("nothing to bring up: DIAG disabled and no enabled AT channels");
-			rc = 3;
-		} else {
-			log_warn("relay engine not yet implemented; would bring up DIAG=%s and %zu AT channel(s)",
-				 cfg.diag.enabled ? "on" : "off", enabled_ats);
-		}
-	}
+	rc = run(&cfg);
 
 	config_free(&cfg);
 	cli_opts_free(&opts);
