@@ -6,28 +6,31 @@
 static int run(const struct config *cfg)
 {
 	struct engine *e;
-	int n_at, rc;
+	int n_at, n_diag = 0, rc;
 
 	if (!cfg->enabled) {
 		log_info("globally disabled (enabled=0); nothing to do");
 		return 0;
 	}
 
-	if (cfg->diag.enabled)
-		log_warn("DIAG leg not implemented in this build; ignoring the 'diag' section for now");
-
 	e = engine_new();
 	n_at = at_start_all(e, cfg);
 
-	if (n_at <= 0) {
-		log_err("nothing to bring up: no AT channels came up");
+	if (cfg->diag.enabled && diag_start(e, cfg) == 0)
+		n_diag = 1;
+
+	if (n_at + n_diag <= 0) {
+		log_err("nothing to bring up: no AT channels and no DIAG");
 		engine_free(e);
+		diag_stop();
 		return 3;
 	}
 
-	log_info("%d AT channel(s) up; relaying (SIGINT/SIGTERM to stop)", n_at);
+	log_info("%d AT + %d DIAG channel(s) up; relaying (SIGINT/SIGTERM to stop)",
+		 n_at, n_diag);
 	rc = engine_run(e);
 	engine_free(e);
+	diag_stop();
 	return rc;
 }
 

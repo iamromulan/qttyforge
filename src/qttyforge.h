@@ -141,4 +141,13 @@ void pty_close(struct pty *p);
  * relay). Per-channel failures are non-fatal. Returns the count started. */
 int at_start_all(struct engine *e, const struct config *cfg);
 
+/* ---------------------------------------------------------------- DIAG leg */
+
+/* Interject the managed diag-router to run with -s, accept its socket, and
+ * relay it to /dev/ttyDiag via the engine. Returns 0 if DIAG came up, -1 if
+ * skipped (non-fatal). diag_stop() reverts the interject on shutdown and is
+ * safe to call even if diag_start() was never called or failed. */
+int  diag_start(struct engine *e, const struct config *cfg);
+void diag_stop(void);
+
 #endif /* QTTYFORGE_H */
