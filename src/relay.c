@@ -1,6 +1,10 @@
-#include "relay.h"
-#include "log.h"
-#include "xalloc.h"
+/* The relay engine (a buffered, backpressured poll() byte-pump) plus the
+ * PTY helper both legs use to create their /dev/tty* endpoints. */
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE	/* expose openpty() in <util.h> under -std=c11 */
+#endif
+
+#include "qttyforge.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -8,9 +12,77 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <termios.h>
 #include <unistd.h>
 
+#if defined(__APPLE__)
+#include <util.h>
+#else
+#include <pty.h>
+#endif
+
 #define RELAY_BUF 65536
+
+/* ================================ pty ================================ */
+
+int pty_open(struct pty *p, const char *link_path)
+{
+	int master, slave;
+	char name[256];
+	struct termios t;
+	int fl;
+
+	p->master = p->slave = -1;
+	p->link = NULL;
+
+	if (openpty(&master, &slave, name, NULL, NULL) < 0) {
+		log_err("pty: openpty: %s", strerror(errno));
+		return -1;
+	}
+
+	if (tcgetattr(slave, &t) == 0) {
+		cfmakeraw(&t);
+		tcsetattr(slave, TCSANOW, &t);
+	}
+
+	fl = fcntl(master, F_GETFL);
+	if (fl >= 0)
+		fcntl(master, F_SETFL, fl | O_NONBLOCK);
+
+	unlink(link_path);
+	if (symlink(name, link_path) < 0) {
+		log_err("pty: symlink %s -> %s: %s", link_path, name, strerror(errno));
+		close(master);
+		close(slave);
+		return -1;
+	}
+	chmod(name, 0660);
+
+	p->master = master;
+	p->slave = slave;
+	p->link = xstrdup(link_path);
+	return 0;
+}
+
+void pty_close(struct pty *p)
+{
+	if (p->master >= 0) {
+		close(p->master);
+		p->master = -1;
+	}
+	if (p->slave >= 0) {
+		close(p->slave);
+		p->slave = -1;
+	}
+	if (p->link) {
+		unlink(p->link);
+		free(p->link);
+		p->link = NULL;
+	}
+}
+
+/* ============================== engine =============================== */
 
 /* A single-direction byte buffer: valid data is data[off .. len). */
 struct ringbuf {
@@ -96,14 +168,15 @@ static void set_nonblock(int fd)
 int engine_add_relay(struct engine *e, const char *name, int fd_a, int fd_b,
 		     int hold_fd, const char *unlink_path)
 {
+	struct link *l;
+
 	if (fd_a < 0 || fd_b < 0)
 		return -1;
 
 	set_nonblock(fd_a);
 	set_nonblock(fd_b);
 
-	struct link *l = xmalloc(sizeof(*l));
-
+	l = xmalloc(sizeof(*l));
 	memset(l, 0, sizeof(*l));
 	l->name = xstrdup(name ? name : "relay");
 	l->fd_a = fd_a;

@@ -21,7 +21,10 @@ else
 CFLAGS ?= -O2
 endif
 
-override CPPFLAGS += -D_GNU_SOURCE -I$(SRCDIR)
+# Quoted includes resolve relative to each .c (all sources live in $(SRCDIR)),
+# so no -I is needed — and adding -I$(SRCDIR) would let our headers shadow
+# system ones (e.g. <pty.h>), so deliberately leave it off.
+override CPPFLAGS += -D_GNU_SOURCE
 override CFLAGS   += -std=c11 -Wall -Wextra
 
 ifeq ($(STATIC),1)

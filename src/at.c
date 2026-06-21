@@ -1,8 +1,5 @@
-#include "at.h"
-#include "config.h"
-#include "log.h"
-#include "pty.h"
-#include "relay.h"
+/* The AT leg: bridge each internal smd channel to a local /dev/ttyATx. */
+#include "qttyforge.h"
 
 #include <errno.h>
 #include <fcntl.h>

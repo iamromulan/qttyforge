@@ -1,12 +1,6 @@
-#include "at.h"
-#include "cli.h"
-#include "config.h"
-#include "log.h"
-#include "relay.h"
-#include "version.h"
+#include "qttyforge.h"
 
 #include <errno.h>
-#include <stdbool.h>
 #include <string.h>
 
 static int run(const struct config *cfg)
