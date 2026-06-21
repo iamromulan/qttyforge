@@ -23,8 +23,11 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      - name: Build static ${{ matrix.arch }} (Alpine / musl)
+      - name: Build + package static ${{ matrix.arch }} (Alpine / musl)
         run: |
+          # Build AND package inside the container: the binary is created as
+          # root, so the host runner can't chmod/tar it — do it where we are
+          # root and just upload the finished tarball.
           docker run --rm --platform ${{ matrix.platform }} \
             -v "${{ github.workspace }}:/w" -w /w \
             alpine:latest sh -c '
@@ -34,12 +37,9 @@ jobs:
               echo "=== file ===";  file qttyforge
               echo "=== smoke ==="; ./qttyforge --version
               mv qttyforge qttyforge-${{ matrix.arch }}
+              chmod +x qttyforge-${{ matrix.arch }}
+              tar -czf qttyforge-${{ matrix.arch }}.tar.gz qttyforge-${{ matrix.arch }}
             '
-
-      - name: Package
-        run: |
-          chmod +x qttyforge-${{ matrix.arch }}
-          tar -czf qttyforge-${{ matrix.arch }}.tar.gz qttyforge-${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v4
         with:
