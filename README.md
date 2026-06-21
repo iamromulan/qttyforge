@@ -37,12 +37,12 @@ UCI-style config (qttyforge ships its own minimal parser — **no `libuci` depen
 
 ```
 config qttyforge 'global'
-    option enabled     '1'
-    option diag_socket '127.0.0.1:2500'
+    option enabled '1'
 
 config diag 'diag'
     option enabled '1'
     option tty     '/dev/ttyDiag'
+    option socket  '127.0.0.1:2500'
 
 config at 'at0'
     option enabled '1'
@@ -50,7 +50,7 @@ config at 'at0'
     option tty     '/dev/ttyAT0'
 ```
 
-The config simply declares the wiring: which internal channel maps to which `/dev/ttyATx`, and whether `/dev/ttyDiag` is enabled.
+`global` carries only the master `enabled` switch — whether the daemon runs at all. Everything else declares the wiring: the `diag` section owns the DIAG leg (its `/dev/ttyDiag`, the `diag-router -s` socket, and an optional explicit `router` path), and each `at` section maps one internal channel to one `/dev/ttyATx`.
 
 ## Compatibility
 
