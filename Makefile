@@ -28,11 +28,15 @@ ifeq ($(STATIC),1)
 override LDFLAGS += -static
 endif
 
-# openpty() lives in -lutil on glibc; on musl it's in libc (-lutil is an
-# empty stub) and on macOS it's in libSystem (no -lutil). Only add it on Linux.
-UNAME_S := $(shell uname -s)
+# openpty() lives in -lutil on glibc, but in libc on musl and macOS. Add
+# -lutil only for non-musl Linux (glibc), so static musl builds (Alpine /
+# cross) and macOS don't fail on a missing libutil.
+UNAME_S    := $(shell uname -s)
+CC_MACHINE := $(shell $(CC) -dumpmachine 2>/dev/null)
 ifeq ($(UNAME_S),Linux)
+ifeq ($(findstring musl,$(CC_MACHINE)),)
 override LDLIBS += -lutil
+endif
 endif
 
 PREFIX  ?= /usr/local

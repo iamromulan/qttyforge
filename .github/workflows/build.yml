@@ -1,0 +1,73 @@
+name: build
+
+# Phase 1: manual test builds only. Once the AT and DIAG legs are both in,
+# this gains an automatic push-to-main trigger, and a separate tag-triggered
+# workflow will cut full (non-pre-release) releases.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            platform: linux/arm64
+          - arch: armv7
+            platform: linux/arm/v7
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build static ${{ matrix.arch }} (Alpine / musl)
+        run: |
+          docker run --rm --platform ${{ matrix.platform }} \
+            -v "${{ github.workspace }}:/w" -w /w \
+            alpine:latest sh -c '
+              set -e
+              apk add --no-cache build-base
+              make STATIC=1
+              echo "=== file ===";  file qttyforge
+              echo "=== smoke ==="; ./qttyforge --version
+              mv qttyforge qttyforge-${{ matrix.arch }}
+            '
+
+      - name: Package
+        run: |
+          chmod +x qttyforge-${{ matrix.arch }}
+          tar -czf qttyforge-${{ matrix.arch }}.tar.gz qttyforge-${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qttyforge-${{ matrix.arch }}
+          path: qttyforge-${{ matrix.arch }}.tar.gz
+
+  prerelease:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -laR dist
+
+      - name: Refresh rolling 'preview' pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete preview --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create preview dist/*.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Preview (test build)" \
+            --notes "Rolling pre-release test build from ${GITHUB_SHA}. AT leg only — DIAG not yet wired. Not for production use." \
+            --prerelease \
+            --target "$GITHUB_SHA"
